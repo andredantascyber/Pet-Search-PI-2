@@ -32,11 +32,14 @@ const db = {
 // --- CONFIGURAÇÃO DO NODEMAILER ---
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
+    port: 587, // <-- MUDANÇA
+    secure: false, // <-- MUDANÇA (true para 465, false para 587)
     auth: {
         user: 'petsearch2025@gmail.com',
         pass: process.env.GMAIL_PASS
+    },
+    tls: {
+        rejectUnauthorized: false // Adicionado para compatibilidade com nuvem
     }
 });
 
