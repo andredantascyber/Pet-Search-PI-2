@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastrar Animal | Pet Search</title>
+    <link rel="stylesheet" href="src/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo-animada"> 
+            <div class="pata"><span class="dedo"></span><span class="dedo"></span><span class="dedo"></span><span class="dedo"></span><span class="palma"></span></div>
+            <span class="texto-logo">Pet Search</span>
+        </div>
+        <div class="nav-bar"> 
+            <nav id="main-navigation"> <ul id="nav-links"></ul> </nav>
+            <div id="user-actions"></div>
+        </div> 
+    </header>
+    <main class="form-page"> 
+        <h2>Cadastre um animal perdido ou encontrado</h2>
+        <form onsubmit="salvarCadastroAnimal(event)" enctype="multipart/form-data" id="formCadastro">
+ 	        <div class="form-group">
+                <label for="status">Situação do Animal:<span class="required">*</span></label>
+                <select id="status" name="status" required>
+                    <option value="">Selecione</option>
+                    <option value="perdido">Perdido</option>
+                    <option value="encontrado">Encontrado</option>
+                </select>
+                <label for="nome">Nome do Animal:</label>
+                <input type="text" id="nome" name="nome" placeholder="Ex: Bob, Luna">
+                <label for="foto">Foto do Animal:</label>
+                <input type="file" id="foto" name="foto" accept="image/*">
+                <label for="porte">Porte:</label>
+                <select id="porte" name="porte">
+                    <option value="">Selecione</option>
+                    <option value="Pequeno">Pequeno</option>
+                    <option value="Médio">Médio</option>
+                    <option value="Grande">Grande</option>
+                </select>
+                <label for="cor">Cor:</label>
+                <input type="text" id="cor" name="cor" placeholder="Ex: Branco, Preto, Caramelo">
+                <label for="raca">Raça:</label>
+                <input type="text" id="raca" name="raca" placeholder="Ex: SRD, Poodle, Siamês">
+                <label for="genero">Gênero:</label>
+                <select id="genero" name="genero">
+                    <option value="">Selecione</option>
+                    <option value="Macho">Macho</option>
+                    <option value="Fêmea">Fêmea</option>
+                </select>
+                <label for="descricao">Breve Descrição / Características:</label>
+                <textarea id="descricao" name="descricao" rows="3" placeholder="Ex: Muito dócil, usa coleira azul"></textarea>
+                <label for="cep">CEP:<span class="required">*</span></label>
+                <input type="text" id="cep" name="cep" placeholder="00000-000" maxlength="9" oninput="buscarCep(this.value)" required>
+                <div id="cep-error"></div> 
+                <label for="logradouro">Rua:<span class="required">*</span></label>
+                <input type="text" id="logradouro" name="logradouro" placeholder="Rua (preenchido pelo CEP)" required>
+                <label for="numero">Número:<span class="required">*</span></label>
+                <input type="text" id="numero" name="numero" placeholder="Ex: 123" required>
+                <label for="complemento">Complemento:</label>
+                <input type="text" id="complemento" name="complemento" placeholder="Ex: Apto 10, Bloco B">
+                <label for="bairro">Bairro:<span class="required">*</span></label>
+                <input type="text" id="bairro" name="bairro" placeholder="Bairro (preenchido pelo CEP)" required>
+                <label for="cidade">Cidade:<span class="required">*</span></label>
+                <input type="text" id="cidade" name="cidade" placeholder="Cidade (preenchido pelo CEP)" required readonly> 
+                <label for="estado">Estado (UF):<span class="required">*</span></label>
+                <input type="text" id="estado" name="estado" placeholder="UF (preenchido pelo CEP)" required readonly> 
+                <input type="hidden" id="localizacao_completa" name="localizacao">
+                <label for="tutor">Nome do Tutor:<span class="required">*</span></label>
+                <input type="text" id="tutor" name="tutor" placeholder="Seu nome ou de quem encontrou" required>
+                <label for="email">E-mail do Tutor:<span class="required">*</span></label>
+                <input type="email" id="email" name="email" placeholder="email@exemplo.com" required>
+                <label for="telefone">Telefone do Tutor:<span class="required">*</span></label>
+                <input type="tel" id="telefone" name="telefone" placeholder="(11) 91234-5678" required>
+                <button type="submit">Cadastrar Animal</button>
+ 	        </div>
+        </form>
+    </main>
+    <footer>
+        &copy; 2025 Pet Search. Projeto Integrador 2.
+    </footer>
+    <script src="src/js/script.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animais Perdidos | Pet Search</title>
+    <link rel="stylesheet" href="src/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo-animada"> 
+            <div class="pata"><span class="dedo"></span><span class="dedo"></span><span class="dedo"></span><span class="dedo"></span><span class="palma"></span></div>
+            <span class="texto-logo">Pet Search</span>
+        </div>
+        <div class="nav-bar"> 
+            <nav id="main-navigation"> <ul id="nav-links"></ul> </nav>
+            <div id="user-actions"></div>
+        </div> 
+    </header>
+    <main>
+        <h2>Lista de Animais Perdidos</h2>
+        <div class="filtros">
+            <input type="text" id="filtro-nome-perdido" placeholder="Buscar por nome">
+            <input type="text" id="filtro-cep-perdido" placeholder="CEP Próximo (Ex: 00000-000)">
+            <input type="text" id="filtro-local-perdido" placeholder="Buscar por Local (Rua, Bairro...)">
+            <select id="filtro-porte-perdido">
+                <option value="">Porte</option>
+                <option value="Pequeno">Pequeno</option>
+                <option value="Médio">Médio</option>
+                <option value="Grande">Grande</option>
+            </select>
+            <button onclick="limparFiltro('perdido')">Limpar</button>
+        </div>
+        <div class="animal-grid" id="lista-perdido">
+            <p style="text-align: center; grid-column: 1 / -1;">Carregando animais...</p>
+        </div>
+    </main>
+    <footer>
+        &copy; 2025 Pet Search. Projeto Integrador 2.
+    </footer>
+    <script src="src/js/script.js"></script>
+</body>
+</html>

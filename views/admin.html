@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin | Pet Search</title>
+    <link rel="stylesheet" href="src/css/style.css">
+    
+</head>
+<body>
+    <header>
+        <div class="logo-animada">
+            <div class="pata"><span class="dedo"></span><span class="dedo"></span><span class="dedo"></span><span class="dedo"></span><span class="palma"></span></div>
+            <span class="texto-logo">Pet Search</span>
+        </div>
+        <div class="nav-bar">
+            <nav id="main-navigation"> <ul id="nav-links"></ul> </nav>
+            <div id="user-actions"></div>
+        </div>
+    </header>
+
+    <main>
+        <h2>Painel Administrativo - Gerenciar Animais</h2>
+        <div class="admin-table-container">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Foto</th>
+                        <th>Detalhes</th>
+                        <th>Localização</th>
+                        <th>Tutor / Usuário</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="admin-animal-list">
+                    <tr><td colspan="5" style="text-align:center; padding: 20px;">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2025 Pet Search. Projeto Integrador 2.
+    </footer>
+
+    <script src="src/js/script.js"></script>
+    <script>
+        async function carregarAnimaisAdmin() {
+            const tbody = document.getElementById('admin-animal-list');
+            if (!tbody) return;
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">Carregando animais...</td></tr>';
+            try {
+                const response = await fetch(`${API_URL}/admin/animais`);
+                if (!response.ok) {
+                    const errData = await response.json();
+                    if(response.status === 401 || response.status === 403) {
+                         alert("Acesso negado. Você precisa ser administrador.");
+                         window.location.href = '/'; return;
+                    }
+                    throw new Error(errData.error || `Erro ${response.status}`);
+                }
+                const animais = await response.json();
+                if (animais.length === 0) {
+                     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">Nenhum animal cadastrado no sistema.</td></tr>';
+                     return;
+                }
+                tbody.innerHTML = animais.map(animal => {
+                    const ehPerdido = animal.status === 'perdido';
+                    const novoStatus = ehPerdido ? 'encontrado' : 'perdido';
+                    const textoBotaoStatus = ehPerdido ? 'Marcar Encontrado' : 'Marcar Perdido';
+                    const classeBotaoStatus = ehPerdido ? 'btn-encontrado' : 'btn-perdido';
+                    const dataCadastro = animal.data_cadastro ? new Date(animal.data_cadastro).toLocaleDateString('pt-BR') : 'N/A';
+                    return `
+                    <tr id="animal-row-${animal.id}">
+                        <td><img src="${animal.foto || 'src/img/placeholder.png'}" alt="Foto"></td>
+                        <td>
+                            <div class="animal-details-small">
+                                <p><strong>${animal.nome || 'Sem nome'}</strong> (${animal.status})</p>
+                                <p>${animal.porte || ''} ${animal.raca || ''} ${animal.cor || ''} ${animal.genero || ''}</p>
+                                <p><small>ID: ${animal.id} | Cad: ${dataCadastro}</small></p>
+                            </div>
+                        </td>
+                        <td><small>${animal.localizacao || '-'}</small></td>
+                        <td>
+                             <div class="animal-details-small">
+                                <p><strong>Tutor:</strong> ${animal.tutor || '-'}</p>
+                                <p><strong>Usuário:</strong> ${animal.nome_usuario || 'N/A'} (ID: ${animal.usuario_id || 'N/A'})</p>
+                                <p><small>${animal.email_usuario || animal.email || '-'}</small></p>
+                             </div>
+                        </td>
+                        <td>
+                            <button class="${classeBotaoStatus}" onclick="mudarStatusAdmin(${animal.id}, '${novoStatus}', this)">
+                                ${textoBotaoStatus}
+                            </button>
+                            <button class="btn-deletar-admin" onclick="deletarAnimalAdmin(${animal.id}, this)">
+                                Deletar
+                            </button>
+                        </td>
+                    </tr>
+                `}).join('');
+            } catch (error) {
+                console.error('Erro ao carregar animais (admin):', error);
+                tbody.innerHTML = `<tr><td colspan="5" style="color:red; text-align:center; padding: 20px;">Erro: ${error.message}</td></tr>`;
+            }
+        }
+        async function deletarAnimalAdmin(animalId, button) {
+             if (!confirm(`ADMIN: Deletar animal ID ${animalId} PERMANENTEMENTE?`)) { return; }
+             try {
+                const response = await fetch(`${API_URL}/animais/${animalId}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (response.ok) {
+                    alert(`ADMIN: ${data.message}`); button.closest('tr').remove();
+                    const tbody = document.getElementById('admin-animal-list');
+                    if (tbody && tbody.children.length === 0) {
+                         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">Nenhum animal restante.</td></tr>';
+                    }
+                } else { alert(`Erro ADMIN ao deletar: ${data.error}`); }
+            } catch (error) { console.error('Erro ao deletar (admin):', error); alert('Erro de conexão.'); }
+        }
+        async function mudarStatusAdmin(animalId, novoStatus, button) {
+            if (!confirm(`ADMIN: Alterar status do animal ID ${animalId} para "${novoStatus}"?`)) { return; }
+            try {
+                const response = await fetch(`${API_URL}/animais/${animalId}/status`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: novoStatus })
+                });
+                const data = await response.json();
+                if (response.ok) { alert(`ADMIN: ${data.message}`); carregarAnimaisAdmin(); }
+                else { alert(`Erro ADMIN ao mudar status: ${data.error}`); }
+            } catch (error) { console.error('Erro ao mudar status (admin):', error); alert('Erro de conexão.'); }
+        }
+        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', carregarAnimaisAdmin); }
+        else { carregarAnimaisAdmin(); }
+    </script>
+</body>
+</html>

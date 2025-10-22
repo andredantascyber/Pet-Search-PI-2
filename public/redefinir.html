@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redefinir Senha | Pet Search</title>
+    <link rel="stylesheet" href="src/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo-animada"> 
+            <div class="pata"><span class="dedo"></span><span class="dedo"></span><span class="dedo"></span><span class="dedo"></span><span class="palma"></span></div>
+            <span class="texto-logo">Pet Search</span>
+        </div>
+        <div class="nav-bar"> 
+            <nav id="main-navigation"> <ul id="nav-links"></ul> </nav>
+            <div id="user-actions"></div>
+        </div> 
+    </header>
+    <main class="form-page"> 
+        <h2>Crie sua Nova Senha</h2>
+        <form onsubmit="handleRedefinirSenha(event)" id="form-redefinir-senha">
+            <div class="form-group">
+                <label for="senha">Nova Senha:<span class="required">*</span></label>
+                <input type="password" id="senha" name="senha" required minlength="6">
+                <small>(Mínimo 6 caracteres)</small>
+                
+                <label for="senha_confirm">Confirmar Nova Senha:<span class="required">*</span></label>
+                <input type="password" id="senha_confirm" name="senha_confirm" required minlength="6">
+                
+                <button type="submit">Salvar Nova Senha</button> 
+            </div>
+            <div id="redefinir-erro" style="color:red; text-align:center; margin-top:10px;"></div>
+        </form>
+    </main>
+    <footer>
+        &copy; 2025 Pet Search. Projeto Integrador 2.
+    </footer>
+    <script src="src/js/script.js"></script>
+</body>
+</html>
