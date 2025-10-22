@@ -1,0 +1,15 @@
+# Arquivo .gitignore
+
+# Pacotes do Node
+node_modules/
+
+# Arquivo de Senhas
+.env
+
+# Arquivos de log do NPM
+npm-debug.log*
+*.log
+
+# Arquivos do SQLite
+database.db
+database.db-journal
