@@ -106,7 +106,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // O OnRender vai criar um disco persistente para isso.
 const SESSAO_DB_PATH = '/var/data/sessions.db'; // Caminho especial do OnRender
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.db', dir: '/var/data' }), // Salva no disco persistente
+  store: new SQLiteStore({ db: 'sessions.db', dir: './' }), // Salva no disco persistente
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
