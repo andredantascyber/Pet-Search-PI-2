@@ -1,4 +1,4 @@
-require('dotenv').config(); // NO TOPO
+// require('dotenv').config(); // NÃO USAR EM PRODUÇÃO
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
