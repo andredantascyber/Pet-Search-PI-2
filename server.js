@@ -6,37 +6,32 @@ const multer = require('multer');
 const fs = require('fs');
 const app = express();
 const session = require('express-session');
-const SQLiteStore = require('connect-sqlite3')(session); // Vamos manter a sessão em SQLite por simplicidade
+const SQLiteStore = require('connect-sqlite3')(session);
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
+// const nodemailer = require('nodemailer'); // <-- Não precisamos mais
 const crypto = require('crypto');
+const sgMail = require('@sendgrid/mail'); // <-- NOVO: SendGrid
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const { Pool } = require('pg'); // <-- NOVO: Pacote do PostgreSQL
+const { Pool } = require('pg');
 
 // --- CONFIGURAÇÃO DO BANCO DE DADOS (PostgreSQL) ---
-// O OnRender nos dará esta URL. No .env, ela parecerá com:
-// DATABASE_URL="postgres://usuario:senha@host:5432/nomedb"
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Necessário para conexões no OnRender
+    rejectUnauthorized: false
   }
 });
 
-// Substitui db.run e db.all por uma função única
 const db = {
   query: (text, params) => pool.query(text, params),
 };
 
-// --- CONFIGURAÇÃO DO NODEMAILER ---
-const transporter = nodemailer.createTransport({
-    service: 'gmail', // <-- MUDANÇA PRINCIPAL
-    auth: {
-        user: 'petsearch2025@gmail.com',
-        pass: process.env.GMAIL_PASS
-    }
-});
+// --- CONFIGURAÇÃO DO SENDGRID (Substitui o Nodemailer) ---
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// IMPORTANTE: Verifique este e-mail na sua conta SendGrid
+const FROM_EMAIL = 'petsearch2025@gmail.com'; 
+// --------------------------------------------------------
 
 // --- CONFIGURAÇÃO DE GEOLOCALIZAÇÃO ---
 const OPENCAGE_API_KEY = process.env.OPENCAGE_API_KEY;
@@ -100,11 +95,9 @@ app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ATENÇÃO: Ainda usaremos o SQLite para sessões, pois é mais simples no OnRender
-// O OnRender vai criar um disco persistente para isso.
-const SESSAO_DB_PATH = '/var/data/sessions.db'; // Caminho especial do OnRender
+// Correção para deploy gratuito do OnRender (sem disco persistente)
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.db', dir: './' }), // Salva no disco persistente
+  store: new SQLiteStore({ db: 'sessions.db', dir: './' }), // Salva na pasta temporária
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -124,7 +117,7 @@ function isLoggedIn(req, res, next) {
 }
 
 async function isAdmin(req, res, next) {
-   // ... (código existente, MODIFICADO PARA PG)
+   // ... (código existente, sem alteração)
    if (!req.session || !req.session.userId) {
        return res.redirect('/');
    }
@@ -143,8 +136,8 @@ async function isAdmin(req, res, next) {
 }
 
 // --- BANCO DE DADOS (Criação de Tabelas PG) ---
-// Esta função será chamada na inicialização do servidor
 async function criarTabelas() {
+  // ... (código existente, sem alteração)
   const queryUsuarios = `
   CREATE TABLE IF NOT EXISTS usuarios (
     id SERIAL PRIMARY KEY,
@@ -185,7 +178,7 @@ async function criarTabelas() {
     console.log("Tabela 'animais' verificada/criada.");
   } catch (err) {
     console.error("Erro ao criar tabelas:", err);
-    process.exit(1); // Para o servidor se não conseguir criar as tabelas
+    process.exit(1);
   }
 }
 
@@ -204,8 +197,9 @@ app.get('/api/cep/:cep', async (req, res) => {
     } catch (error) { console.error('Erro API ViaCEP:', error); res.status(500).json({ error: 'Erro consulta CEP' }); }
 });
 
-// ROTA: Cadastrar animal (ATUALIZADA PARA PG)
+// ROTA: Cadastrar animal
 app.post('/api/animais', isLoggedIn, upload.single('foto'), async (req, res) => {
+  // ... (código existente, sem alteração)
   const { nome, status, porte, cor, raca, genero, descricao, localizacao, logradouro, numero, cidade, estado, tutor, email, telefone } = req.body;
   if (!status || !(logradouro || localizacao) || !tutor || !email || !telefone) { return res.status(400).json({ error: "Campos obrigatórios" }); }
   if (!/\S+@\S+\.\S+/.test(email)) { return res.status(400).json({ error: "E-mail inválido." }); }
@@ -222,7 +216,7 @@ app.post('/api/animais', isLoggedIn, upload.single('foto'), async (req, res) => 
   
   const sql = `INSERT INTO animais (nome, status, foto, porte, cor, raca, genero, descricao, localizacao, tutor, email, telefone, usuario_id, latitude, longitude, foto_public_id) 
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-               RETURNING id`; // $1, $2... é a sintaxe do PG
+               RETURNING id`;
   const params = [nome||null, status, foto, porte||null, cor||null, raca||null, genero||null, descricao||null, localizacao, tutor, email, telefone, uid, latitude, longitude, foto_public_id];
 
   try {
@@ -241,8 +235,9 @@ app.post('/api/animais', isLoggedIn, upload.single('foto'), async (req, res) => 
   }
 });
 
-// ROTA: Buscar animais (ATUALIZADA PARA PG)
+// ROTA: Buscar animais
 app.get('/api/animais', async (req, res) => {
+    // ... (código existente, sem alteração)
     const { default: fetch } = await import('node-fetch');
     const { status, nome, localizacao, porte, cep, limit } = req.query;
     const RAIO_KM = 5;
@@ -260,13 +255,12 @@ app.get('/api/animais', async (req, res) => {
     let address = null;
 
     if (statusList.length > 0) {
-        sqlWhere = `WHERE status IN (${statusList.map((s, i) => `$${i + 1}`).join(',')})`; // $1, $2...
+        sqlWhere = `WHERE status IN (${statusList.map((s, i) => `$${i + 1}`).join(',')})`;
         params.push(...statusList);
     } else {
         sqlWhere = 'WHERE 1=1';
     }
     
-    // Obter Coordenadas (igual)
     if (cep && cep.replace(/\D/g, '').length === 8) {
         const c = cep.replace(/\D/g, ''); console.log(`Buscando CEP: ${c}`);
         try { const r = await fetch(`https://viacep.com.br/ws/${c}/json/`); if (r.ok) { const d = await r.json(); if(!d.erro) address = [d.logradouro, d.bairro, d.localidade, d.uf].filter(Boolean).join(', '); } else { console.warn(`ViaCEP falhou (${r.status})`); } } catch(e){ console.error("Erro ViaCEP:", e); }
@@ -274,13 +268,11 @@ app.get('/api/animais', async (req, res) => {
     } else if (localizacao) { address = localizacao; }
     if (address) { searchCoords = await geocodeAddress(address); }
 
-    // Montar Query SQL Haversine (Sintaxe PG)
     if (searchCoords && typeof searchCoords.lat === 'number' && typeof searchCoords.lon === 'number') {
         isGeoSearch = true;
         const lat = searchCoords.lat;
         const lon = searchCoords.lon;
         if (!isNaN(lat) && !isNaN(lon)) {
-            // Fórmula Haversine adaptada para PG (radians() não existe, usa * pi()/180)
             const hav = `acos( cos( (${lat} * pi()/180) ) * cos( ( latitude * pi()/180 ) ) * cos( ( longitude * pi()/180 ) - (${lon} * pi()/180) ) + sin( (${lat} * pi()/180) ) * sin( ( latitude * pi()/180 ) ) )`;
             const dist = `( 6371 * ${hav} )`;
             sqlSelect = `SELECT *, ${dist} AS distancia`;
@@ -290,7 +282,7 @@ app.get('/api/animais', async (req, res) => {
         } else {
             isGeoSearch = false;
             if (localizacao) {
-                sqlWhere += ` AND localizacao ILIKE $${params.length + 1}`; // ILIKE = case-insensitive
+                sqlWhere += ` AND localizacao ILIKE $${params.length + 1}`;
                 params.push(`%${localizacao}%`);
             }
         }
@@ -325,8 +317,9 @@ app.get('/api/animais', async (req, res) => {
     }
 });
 
-// *** ROTA ADMIN API (ATUALIZADA PARA PG) ***
+// *** ROTA ADMIN API ***
 app.get('/api/admin/animais', isLoggedIn, isAdmin, async (req, res) => {
+    // ... (código existente, sem alteração)
     const sql = `SELECT a.*, u.nome as nome_usuario, u.email as email_usuario
                  FROM animais a LEFT JOIN usuarios u ON a.usuario_id = u.id ORDER BY a.data_cadastro DESC`;
     try {
@@ -338,8 +331,9 @@ app.get('/api/admin/animais', isLoggedIn, isAdmin, async (req, res) => {
     }
 });
 
-// ROTA: Buscar animais do PRÓPRIO usuário (ATUALIZADA PARA PG)
+// ROTA: Buscar animais do PRÓPRIO usuário
 app.get('/api/meus-animais', isLoggedIn, async (req, res) => {
+  // ... (código existente, sem alteração)
   const uid = req.session.userId;
   const sql = "SELECT * FROM animais WHERE usuario_id = $1 ORDER BY data_cadastro DESC";
   try {
@@ -351,33 +345,29 @@ app.get('/api/meus-animais', isLoggedIn, async (req, res) => {
   }
 });
 
-// ROTA: Deletar um animal (ATUALIZADA PARA PG)
+// ROTA: Deletar um animal
 app.delete('/api/animais/:id', isLoggedIn, async (req, res) => {
+  // ... (código existente, sem alteração)
   const aid = req.params.id; 
   const uid = req.session.userId;
 
   try {
-      // 1. Pega o ID da foto e permissão
       const userResult = await db.query("SELECT is_admin FROM usuarios WHERE id = $1", [uid]);
       const user = userResult.rows[0];
       if (!user) return res.status(500).json({ error: "Erro permissões" }); 
       const isAdmin = user.is_admin;
       
-      // 2. Busca o animal para pegar o ID da foto
       const animalResult = await db.query("SELECT usuario_id, foto_public_id FROM animais WHERE id = $1", [aid]);
       const animal = animalResult.rows[0];
       if (!animal) return res.status(404).json({ error: "Animal não encontrado." });
       
-      // 3. Verifica permissão
       if (animal.usuario_id !== uid && !isAdmin) {
           return res.status(403).json({ error: "Sem permissão para deletar este animal." });
       }
 
-      // 4. Deleta do Banco de Dados
       const sql = "DELETE FROM animais WHERE id = $1";
       await db.query(sql, [aid]);
 
-      // 5. Deleta do Cloudinary
       if (animal.foto_public_id) {
           cloudinary.uploader.destroy(animal.foto_public_id, (destroyErr, destroyResult) => {
               if (destroyErr) {
@@ -399,8 +389,9 @@ app.delete('/api/animais/:id', isLoggedIn, async (req, res) => {
   }
 });
 
-// ROTA: Mudar status de um animal (ATUALIZADA PARA PG)
+// ROTA: Mudar status de um animal
 app.put('/api/animais/:id/status', isLoggedIn, async (req, res) => {
+  // ... (código existente, sem alteração)
   const aid = req.params.id;
   const uid = req.session.userId;
   const { status } = req.body;
@@ -433,7 +424,9 @@ app.put('/api/animais/:id/status', isLoggedIn, async (req, res) => {
   }
 });
 
-// ROTA: Notificar que animal foi encontrado (ATUALIZADA PARA PG)
+// ==========================================================
+// ROTA: Notificar que animal foi encontrado (ATUALIZADA PARA SENDGRID)
+// ==========================================================
 app.post('/api/animais/:id/notificar-encontrado', async (req, res) => {
     const animalId = req.params.id;
     const { notificadorEmail, mensagemAdicional } = req.body; 
@@ -454,9 +447,10 @@ app.post('/api/animais/:id/notificar-encontrado', async (req, res) => {
         const donoEmail = animal.email;
         const donoNome = animal.tutor;
 
-        const mailOptions = {
-            from: '"Pet Search" <petsearch2025@gmail.com>',
+        // Objeto 'msg' para o SendGrid
+        const msg = {
             to: donoEmail,
+            from: FROM_EMAIL, // Seu e-mail verificado no SendGrid
             subject: `Alguém viu o(a) ${animalNome}! - Pet Search`,
             html: `
                 <p>Olá, ${donoNome}!</p>
@@ -471,14 +465,21 @@ app.post('/api/animais/:id/notificar-encontrado', async (req, res) => {
             `
         };
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.error("Erro ao enviar notificação:", error);
+        // Envia com o SendGrid
+        sgMail.send(msg)
+            .then(() => {
+                console.log('Notificação enviada (SendGrid): %s', donoEmail);
+                res.json({ message: "Notificação enviada com sucesso para o tutor!" });
+            })
+            .catch((error) => {
+                if (error.response) {
+                    console.error("Erro ao enviar notificação (SendGrid):", error.response.body);
+                } else {
+                    console.error("Erro ao enviar notificação (SendGrid):", error);
+                }
                 return res.status(500).json({ error: "Erro ao enviar e-mail." });
-            }
-            console.log('Notificação enviada: %s', info.messageId);
-            res.json({ message: "Notificação enviada com sucesso para o tutor!" });
-        });
+            });
+
     } catch (err) {
         console.error("Erro ao notificar (PG):", err);
         res.status(500).json({ error: "Erro interno." });
@@ -487,7 +488,9 @@ app.post('/api/animais/:id/notificar-encontrado', async (req, res) => {
 
 // --- ROTAS DE AUTENTICAÇÃO (MODIFICADAS PARA PG) ---
 
-// ROTA: Registrar novo usuário (ATUALIZADA PARA PG)
+// ==========================================================
+// ROTA: Registrar novo usuário (ATUALIZADA PARA SENDGRID)
+// ==========================================================
 app.post('/api/register', async (req, res) => {
   const { nome, email, senha } = req.body;
   
@@ -502,10 +505,10 @@ app.post('/api/register', async (req, res) => {
     const result = await db.query(sql, [nome, email, hash]);
     const novoUsuarioId = result.rows[0].id;
     
-    // Envia e-mail de boas-vindas (sem alteração)
-    const mailOptions = {
-        from: '"Pet Search" <petsearch2025@gmail.com>',
+    // Envia e-mail de boas-vindas com SendGrid
+    const msg = {
         to: email,
+        from: FROM_EMAIL,
         subject: 'Bem-vindo(a) ao Pet Search!',
         html: `
             <h1>Olá, ${nome}!</h1>
@@ -514,13 +517,19 @@ app.post('/api/register', async (req, res) => {
             <p>Aproveite a plataforma!</p>
         `
     };
-    transporter.sendMail(mailOptions, (error, info) => {
-        if (error) {
-            console.error(`Erro ao enviar e-mail de boas-vindas para ${email}:`, error);
-        } else {
-            console.log(`E-mail de boas-vindas enviado para ${email}: ${info.messageId}`);
-        }
-    });
+    
+    sgMail.send(msg)
+        .then(() => {
+            console.log(`E-mail de boas-vindas enviado (SendGrid) para ${email}`);
+        })
+        .catch((error) => {
+            // Não falha o cadastro, apenas loga o erro
+            if (error.response) {
+                console.error(`Erro ao enviar e-mail de boas-vindas (SendGrid):`, error.response.body);
+            } else {
+                console.error(`Erro ao enviar e-mail de boas-vindas (SendGrid):`, error);
+            }
+        });
 
     // Cria a sessão (sem alteração)
     req.session.regenerate( (errR) => { 
@@ -540,7 +549,9 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// ROTA: Esqueci Minha Senha (ATUALIZADA PARA PG)
+// ==========================================================
+// ROTA: Esqueci Minha Senha (ATUALIZADA PARA SENDGRID)
+// ==========================================================
 app.post('/api/esqueci-senha', async (req, res) => {
     const { email } = req.body;
     if (!email) {
@@ -566,9 +577,10 @@ app.post('/api/esqueci-senha', async (req, res) => {
         const protocol = req.protocol;
         const resetLink = `${protocol}://${host}/redefinir.html?token=${token}`;
 
-        const mailOptions = {
-            from: '"Pet Search" <petsearch2025@gmail.com>',
+        // Mensagem para o SendGrid
+        const msg = {
             to: user.email,
+            from: FROM_EMAIL,
             subject: 'Redefinição de Senha - Pet Search',
             html: `
                 <p>Olá, ${user.nome}.</p>
@@ -578,14 +590,20 @@ app.post('/api/esqueci-senha', async (req, res) => {
             `
         };
 
-        transporter.sendMail(mailOptions, (error, info) => {
-            if (error) {
-                console.error("Erro ao enviar e-mail de reset:", error);
+        // Envia com o SendGrid
+        sgMail.send(msg)
+            .then(() => {
+                console.log(`E-mail de reset enviado (SendGrid) para ${user.email}`);
+                res.json({ message: "Se um usuário com este e-mail existir, um link de redefinição será enviado." });
+            })
+            .catch((error) => {
+                if (error.response) {
+                    console.error("Erro ao enviar e-mail de reset (SendGrid):", error.response.body);
+                } else {
+                    console.error("Erro ao enviar e-mail de reset (SendGrid):", error);
+                }
                 return res.status(500).json({ error: "Erro ao enviar e-mail." });
-            }
-            console.log(`E-mail de reset enviado para ${user.email}`);
-            res.json({ message: "Se um usuário com este e-mail existir, um link de redefinição será enviado." });
-        });
+            });
         
     } catch (err) {
         console.error("Erro ao salvar token no DB (PG):", err);
@@ -593,8 +611,9 @@ app.post('/api/esqueci-senha', async (req, res) => {
     }
 });
 
-// ROTA: Redefinir Senha (ATUALIZADA PARA PG)
+// ROTA: Redefinir Senha
 app.post('/api/redefinir-senha', async (req, res) => {
+    // ... (código existente, sem alteração)
     const { token, senha } = req.body;
 
     if (!token || !senha) { return res.status(400).json({ error: "Token e nova senha são obrigatórios." }); }
@@ -623,8 +642,9 @@ app.post('/api/redefinir-senha', async (req, res) => {
     }
 });
 
-// ROTA: Login de usuário (ATUALIZADA PARA PG)
+// ROTA: Login de usuário
 app.post('/api/login', async (req, res) => {
+  // ... (código existente, sem alteração)
   const { email, senha } = req.body; 
   if (!email || !senha) { return res.status(400).json({ error: "Campos obrigatórios" }); }
   
@@ -669,7 +689,7 @@ app.get('/api/logout', (req, res) => {
 });
 
 app.get('/api/session', async (req, res) => {
-  // ... (código existente, MODIFICADO PARA PG)
+  // ... (código existente, sem alteração)
   if (req.session.userId) {
     const sql = "SELECT id, nome, email, is_admin FROM usuarios WHERE id = $1";
     try {
